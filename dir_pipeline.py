@@ -65,25 +65,27 @@ def populate_db(raw_data, table_name, conn):
         #Make a new table if the desired one doesn't exist yet
         sql_create = 'CREATE TABLE IF NOT EXISTS ' + str(table_name) + '( `LAST_UPDATE` TEXT, `CBSA` TEXT, `DATETIME` TEXT, `HirAEndR` NUMERIC, `FrmJbGnS` NUMERIC, `EarnHirAs` NUMERIC, `EarnHirNS` NUMERIC, `Sex` INTEGER, `AgeGrp` TEXT, `Education` TEXT, `Race` TEXT, `Ethnicity` TEXT, PRIMARY KEY(`LAST_UPDATE`));'
 
-        cursor.execute(sql_create)
-        cursor.close()
+        try:
+            cursor.execute(sql_create)
+        except Exception as e:
+            logger.error(e)
+        else:
+            cursor.close()
 
-        last_update = str(datetime.datetime.now())
-        # sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
-        #                                          "EarnHirNS, Sex, AgeGrp, Education, Race, Ethnicity), " \
-        #                                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
-                                                 "EarnHirNS, Sex, AgeGrp) " \
-                                                 "VALUES (" + last_update + ", 'Dallas', ?, ?, ?, ?, ?, ?, ?)"
+            last_update = str(datetime.datetime.now())
+            # sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
+            #                                          "EarnHirNS, Sex, AgeGrp, Education, Race, Ethnicity), " \
+            #                                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
+                                                     "EarnHirNS, Sex, AgeGrp) " \
+                                                     "VALUES ('" + last_update + "', 'Dallas', ?, ?, ?, ?, ?, ?, ?)"
 
+    
+            ready_data = [tuple(c) for c in raw_data[1:]]
 
-
-        print(raw_data[0])
-        ready_data = [tuple(c) for c in raw_data]
-
-        cursor = conn.cursor()
-        cursor.executemany(sql, ready_data)
-        cursor.close()
+            cursor = conn.cursor()
+            cursor.executemany(sql, ready_data)
+            cursor.close()
 
 
 def main():

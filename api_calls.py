@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(levelname)s:%(message)s')
 logger.setLevel(logging.INFO)
 
-def fetch_data(values):
+def fetch_data(cbsa, ):
     """
 
     :param values:
@@ -14,8 +14,9 @@ def fetch_data(values):
     """
 
     api_key = cfg.api_key
-    values = 'Emp&for=county:198&in=state:02&year=2012&quarter=1&sex=1&sex=2&agegrp=A02&agegrp=A07' \
-             '&key=' + api_key
+    timerange = cfg.timerange
+    values = 'Emp&for=county:*&in=state:02&time=from 2010 to 2011&sex=1&sex=2&agegrp=A02&' \
+             'agegrp=A07&key=' + api_key
     url = cfg.census_host + values
 
     try:

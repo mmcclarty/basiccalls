@@ -3,6 +3,9 @@ cbsa1 = '48113' # Dallas
 cbsa2 = '1312060' # Atlanta
 cbsa3 = '1826900' # Indianapolis
 
+# Timerange
+timerange = '2016_to_2019'
+
 # Hosts
 census_host = 'http://api.census.gov/data/timeseries/qwi/sa?get='
 
