@@ -12,6 +12,7 @@ __version__ = '1.0'
 
 import api_calls as api
 import sqlite3 as sql
+from sqlite3 import Error
 import config as cfg
 import logging
 import json
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(levelname)s:%(message)s')
 logger.setLevel(logging.INFO)
 
-
+# TODO: Try and force UPSERT instead of INSERT/REPLACE (Define primary key manually if necessary)
 def connect_to_db(db):
     """
 
@@ -49,43 +50,49 @@ def get_data(values):
     return raw_data
 
 
-def populate_db(raw_data, table_name, conn):
+def populate_db(raw_data, cbsa_key, conn):
     """
 
     :return:
     """
 
+    table_name = '{}_EMP_STATS'.format(str(cbsa_key))
+
     try:
         cursor = conn.cursor()
-    except Exception as sqlerror:
+    except Error as sqlerror:
         logger.error(sqlerror)
     else:
         table_columns = raw_data[0]
+        table_columns.insert(0, "cbsa")
+        table_columns.insert(0, "last_update")
 
         #Make a new table if the desired one doesn't exist yet
-        sql_create = 'CREATE TABLE IF NOT EXISTS ' + str(table_name) + '( `LAST_UPDATE` TEXT, `CBSA` TEXT, `DATETIME` TEXT, `HirAEndR` NUMERIC, `FrmJbGnS` NUMERIC, `EarnHirAs` NUMERIC, `EarnHirNS` NUMERIC, `Sex` INTEGER, `AgeGrp` TEXT, `Education` TEXT, `Race` TEXT, `Ethnicity` TEXT, PRIMARY KEY(`LAST_UPDATE`));'
+        sql_create = "CREATE TABLE IF NOT EXISTS " + str(table_name)\
+                     + "(%s " % ", ".join(table_columns) + ", UNIQUE(%s)" % ", ".join(table_columns[2:]) +\
+                     " ON CONFLICT REPLACE)"
 
         try:
             cursor.execute(sql_create)
-        except Exception as e:
+        except Error as e:
             logger.error(e)
         else:
-            cursor.close()
-
             last_update = str(datetime.datetime.now())
-            # sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
-            #                                          "EarnHirNS, Sex, AgeGrp, Education, Race, Ethnicity), " \
-            #                                          "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            sql = "INSERT INTO " + str(table_name) + " (LAST_UPDATE, CBSA, DATETIME, HirAEndR, FrmJbGnS, EarnHirAs, " \
-                                                     "EarnHirNS, Sex, AgeGrp) " \
-                                                     "VALUES ('" + last_update + "', 'Dallas', ?, ?, ?, ?, ?, ?, ?)"
 
-    
+            sql = "INSERT INTO " + str(table_name) + \
+                  "(%s)" % ", ".join(table_columns) + " VALUES ('" + last_update + "', '" + cbsa_key + "', "" \
+                  ""?, ?, ?, ?, ?, ?)"
+
             ready_data = [tuple(c) for c in raw_data[1:]]
 
-            cursor = conn.cursor()
-            cursor.executemany(sql, ready_data)
-            cursor.close()
+            try:
+                cursor.executemany(sql, ready_data)
+                conn.commit()
+            except Error as sqlerror:
+                logger.error("Data could not be written: " + str(sqlerror))
+            else:
+                cursor.close()
+                logger.info("Data successfully written to table {}".format(table_name))
 
 
 def main():
@@ -94,19 +101,20 @@ def main():
     :return:
     """
 
-    # Instead of checking for source data updates periodically (which could be thrown off if there is an unexpected
-    # crash), on restart the program will check for new data automatically
-
     conn = connect_to_db(cfg.db_file)
 
-    # Populate Dallas table
-    values = ''
-    try:
-        dallas_raw = json.loads(get_data(values))
-    except Exception as e:
-        logger.error(e)
-
-    populate_db(dallas_raw, 'DALLAS_EMP_STATS', conn)
+    # Populate tables
+    if conn is not None:
+        for key in cfg.cbsas.keys():
+            try:
+                logger.info("Fetching data for {} cbsa".format(str(key)))
+                raw_data = json.loads(get_data(key))
+            except Exception as e:
+                logger.error(e)
+            else:
+                populate_db(raw_data, key, conn)
+    else:
+        logger.critical("Data could not be written.")
 
 
 

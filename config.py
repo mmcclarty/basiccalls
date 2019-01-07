@@ -1,7 +1,5 @@
 # CBSA of Interest
-cbsa1 = '48113' # Dallas
-cbsa2 = '1312060' # Atlanta
-cbsa3 = '1826900' # Indianapolis
+cbsas = {'DALLAS' : '48113', 'ATLANTA' : '1312060', 'INDIANAPOLIS' : '1826900'}
 
 # Timerange
 timerange = '2016_to_2019'
