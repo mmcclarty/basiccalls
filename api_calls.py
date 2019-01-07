@@ -2,7 +2,9 @@ import requests
 import config as cfg
 import logging
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(levelname)s:%(message)s')
+logger.setLevel(logging.INFO)
 
 def fetch_data(values):
     """
@@ -13,7 +15,7 @@ def fetch_data(values):
 
     api_key = cfg.api_key
     values = 'Emp&for=county:198&in=state:02&year=2012&quarter=1&sex=1&sex=2&agegrp=A02&agegrp=A07' \
-             '&ownercode=A05&firmsize=1&seasonadj=U&industry=11&key=' + api_key
+             '&key=' + api_key
     url = cfg.census_host + values
 
     try:
@@ -30,6 +32,8 @@ def fetch_data(values):
     else:
         data_return = r.text
         return data_return
+
+print(fetch_data(''))
 
 
 
