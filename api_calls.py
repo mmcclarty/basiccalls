@@ -15,7 +15,7 @@ def fetch_data(cbsa, ):
 
     api_key = cfg.api_key
     timerange = cfg.timerange
-    values = 'Emp&for=county:*&in=state:02&time=from 2010 to 2011&sex=1&sex=2&agegrp=A02&' \
+    values = 'Emp&for=county:113&in=state:48&time=from 2010 to 2017&sex=1&sex=2&agegrp=A02&' \
              'agegrp=A07&key=' + api_key
     url = cfg.census_host + values
 

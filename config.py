@@ -1,14 +1,13 @@
 # CBSA of Interest
-cbsas = {'DALLAS' : '48113', 'ATLANTA' : '1312060', 'INDIANAPOLIS' : '1826900'}
+cbsas = {'DALLAS' : {'state' : '48', 'county' : '113'},
+         'ATLANTA' : {'state' : '13', 'county' : '121'},
+         'INDIANAPOLIS' : {'state' : '18', 'county' : '121'}}
 
 # Timerange
 timerange = '2016_to_2019'
 
 # Hosts
 census_host = 'http://api.census.gov/data/timeseries/qwi/sa?get='
-
-              #'Emp&in=state:02&year=2012&quarter=1&sex=1&sex=2&agegrp=A02&agegrp=A07' \
-              #'&ownercode=A05&firmsize=1&seasonadj=U&industry=11&key=e135c4aac56509004edfc2058c172441fd85f050'
 db_file = 'census_db.db'
 
 # Keys and access
