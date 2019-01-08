@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(levelname)s:%(message)s')
 logger.setLevel(logging.INFO)
 
-# TODO: Try and force UPSERT instead of INSERT/REPLACE (Define primary key manually if necessary)
+
 def connect_to_db(db):
     """
+    Connect to sqlite database
 
     :param db:
     :return:
@@ -42,7 +43,9 @@ def connect_to_db(db):
 
 def get_data(values):
     """
+    Hit API to retrieve data of interest
 
+    :param values: cbsa of interest
     :return:
     """
 
@@ -53,7 +56,11 @@ def get_data(values):
 
 def populate_db(raw_data, cbsa_key, conn):
     """
+    Write retrieved data to db. Make a separate table for each cbsa of interest.
 
+    :param raw_data: data
+    :param cbsa_key: cbsa of interest
+    :param conn: live database connection
     :return:
     """
 
@@ -69,6 +76,7 @@ def populate_db(raw_data, cbsa_key, conn):
         table_columns.insert(0, "last_update")
 
         #Make a new table if the desired one doesn't exist yet
+        #On conflict replace so that redundant data isn't repeated each time the API is hit
         sql_create = "CREATE TABLE IF NOT EXISTS " + str(table_name)\
                      + "(%s " % ", ".join(table_columns) + ", UNIQUE(%s)" % ", ".join(table_columns[2:]) +\
                      " ON CONFLICT REPLACE)"
@@ -103,22 +111,40 @@ def populate_db(raw_data, cbsa_key, conn):
 
 def write_to_csv(conn, table_name, table_columns):
     """
+    Write produced data to three separate local csv files.
 
+    :param conn: live db connection
+    :param table_name: table of interest
+    :param table_columns: headers
     :return:
     """
 
     cursor = conn.cursor()
-    nullstatements = ["IFNULL({}, '')".format(i) for i in table_columns]
+
+    # Replacing all NULLS in db with empty strings, as NULLS are sometimes mishandled by clients like visualization tools
+    nullstatements = ["IFNULL({}, '') as {}".format(i, i) for i in table_columns]
     sql_nonull = "SELECT " + "%s" % ", ".join(nullstatements) + " FROM " + table_name
+
     try:
         cursor.execute(sql_nonull)
         data = cursor.fetchall()
-        print(data)
     except Error as e:
         logger.error(e)
     else:
-        writer = csv.writer(open('{}.csv'.format(table_name), "w"))
-        writer.writerows(data)
+        names = [name[0] for name in cursor.description]
+        # Create if does not exist, else overwrite (not sustainable for very large datasets.  With more time, would
+        # pull last line of csv, do sorted select for only db records newer than that, then append to csv
+        try:
+            writer = csv.writer(open('{}.csv'.format(table_name), "w"))
+            # Write headers from db
+            writer.writerow(names)
+            # Write data
+            writer.writerows(data)
+        except csv.Error as csvError:
+            logger.error("Problem writing to csv: " + str(csvError))
+            return False
+        else:
+            return True
 
 
 def main():
@@ -127,9 +153,10 @@ def main():
     :return:
     """
 
+    # Connect to sqlite db
     conn = connect_to_db(cfg.db_file)
 
-    # Populate tables
+    # For each cbsa specified in configuration file, fetch data from API
     if conn is not None:
         for key in cfg.cbsas.keys():
             try:
@@ -138,8 +165,11 @@ def main():
             except Exception as e:
                 logger.error(e)
             else:
+                # Populate the database
                 table_name, table_columns = populate_db(raw_data, key, conn)
-                write_to_csv(conn, table_name, table_columns)
+
+                # Export to csv
+                csv_r = write_to_csv(conn, table_name, table_columns)
     else:
         logger.critical("Data could not be written.")
 
