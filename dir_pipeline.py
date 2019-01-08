@@ -16,6 +16,7 @@ from sqlite3 import Error
 import config as cfg
 import logging
 import json
+import csv
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -79,9 +80,13 @@ def populate_db(raw_data, cbsa_key, conn):
         else:
             last_update = str(datetime.datetime.now())
 
+            blanks = []
+            for i in range(0, len(table_columns)-2):
+                blanks.append('?')
+
             sql = "INSERT INTO " + str(table_name) + \
                   "(%s)" % ", ".join(table_columns) + " VALUES ('" + last_update + "', '" + cbsa_key + "', "" \
-                  ""?, ?, ?, ?, ?, ?)"
+                  ""%s)" % ", ".join(blanks)
 
             ready_data = [tuple(c) for c in raw_data[1:]]
 
@@ -93,6 +98,27 @@ def populate_db(raw_data, cbsa_key, conn):
             else:
                 cursor.close()
                 logger.info("Data successfully written to table {}".format(table_name))
+                return table_name, table_columns
+
+
+def write_to_csv(conn, table_name, table_columns):
+    """
+
+    :return:
+    """
+
+    cursor = conn.cursor()
+    nullstatements = ["IFNULL({}, '')".format(i) for i in table_columns]
+    sql_nonull = "SELECT " + "%s" % ", ".join(nullstatements) + " FROM " + table_name
+    try:
+        cursor.execute(sql_nonull)
+        data = cursor.fetchall()
+        print(data)
+    except Error as e:
+        logger.error(e)
+    else:
+        writer = csv.writer(open('{}.csv'.format(table_name), "w"))
+        writer.writerows(data)
 
 
 def main():
@@ -112,10 +138,10 @@ def main():
             except Exception as e:
                 logger.error(e)
             else:
-                populate_db(raw_data, key, conn)
+                table_name, table_columns = populate_db(raw_data, key, conn)
+                write_to_csv(conn, table_name, table_columns)
     else:
         logger.critical("Data could not be written.")
-
 
 
 main()

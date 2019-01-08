@@ -4,7 +4,7 @@ cbsas = {'DALLAS' : {'state' : '48', 'county' : '113'},
          'INDIANAPOLIS' : {'state' : '18', 'county' : '121'}}
 
 # Timerange
-timerange = '2016_to_2019'
+timerange = '2014 to 2017-Q3'
 
 # Hosts
 census_host = 'http://api.census.gov/data/timeseries/qwi/sa?get='
