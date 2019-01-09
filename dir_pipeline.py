@@ -1,8 +1,7 @@
 """
 GENERAL PIPELINE
 
-This application will receive data from an external source, transform it to structured storage, and export it to csv
-periodically.
+This application will fetch data from an external source, transform it to structured storage, and export it to csv.
 
 """
 
@@ -64,7 +63,36 @@ def populate_db(raw_data, cbsa_key, conn):
     :return:
     """
 
+    def insert_data():
+        """
+        Write new data to database
+
+        :return:
+        """
+
+        last_update = str(datetime.datetime.now())
+        blanks = []
+        for i in range(0, len(table_columns) - 2):
+            blanks.append('?')
+
+        sql = "INSERT INTO " + str(table_name) + \
+              "(%s)" % ", ".join(table_columns) + " VALUES ('" + last_update + "', '" + cbsa_key + "', "" \
+                                          ""%s)" % ", ".join(blanks)
+
+        ready_data = [tuple(c) for c in raw_data[1:]]
+
+        cursor.executemany(sql, ready_data)
+        conn.commit()
+
+    # Set table name based on incoming data cbsa
     table_name = '{}_EMP_STATS'.format(str(cbsa_key))
+
+    # Extract columns from raw data
+    table_columns = raw_data[0]
+
+    # Add columns for cbsa and last update timestamp
+    table_columns.insert(0, "cbsa")
+    table_columns.insert(0, "last_update")
 
     # First check if table already exists
     does_exist_sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='{}';".format(table_name)
@@ -76,16 +104,10 @@ def populate_db(raw_data, cbsa_key, conn):
     else:
         cursor.execute(does_exist_sql)
         does_exist = cursor.fetchall()
-        print(does_exist)
 
         if does_exist:
             get_table = "SELECT * FROM {} LIMIT 1".format(table_name)
             cursor.execute(get_table)
-
-            table_columns = raw_data[0]
-            table_columns.insert(0, "cbsa")
-            table_columns.insert(0, "last_update")
-            table_columns.insert(0, "megg")
 
             #Now check if there are any new columns you need to add to the table to accommodate the new data
             names = [name[0] for name in cursor.description]
@@ -96,23 +118,8 @@ def populate_db(raw_data, cbsa_key, conn):
                 alter_table_sql = '%s' % '; '.join(alterstatements)
 
                 cursor.executescript(alter_table_sql)
-                print(cursor.description)
-
             try:
-                last_update = str(datetime.datetime.now())
-
-                blanks = []
-                for i in range(0, len(table_columns) - 2):
-                    blanks.append('?')
-
-                sql = "INSERT INTO " + str(table_name) + \
-                      "(%s)" % ", ".join(table_columns) + " VALUES ('" + last_update + "', '" + cbsa_key + "', "" \
-                                      ""%s)" % ", ".join(blanks)
-
-                ready_data = [tuple(c) for c in raw_data[1:]]
-
-                cursor.executemany(sql, ready_data)
-                conn.commit()
+                insert_data()
             except Error as sqlerror:
                 logger.error("Data could not be written: " + str(sqlerror))
             except Exception as e:
@@ -123,11 +130,22 @@ def populate_db(raw_data, cbsa_key, conn):
                 return table_name, table_columns
         else:
             # Make a new table if the desired one doesn't exist yet
-            # On conflict replace so that redundant data isn't repeated each time the API is hit
+            # On conflict replace so that redundant data isn't duplicated each time the API is hit
             sql_create = "CREATE TABLE IF NOT EXISTS " + str(table_name) \
                          + "(%s " % ", ".join(table_columns) + ", UNIQUE(%s)" % ", ".join(table_columns[2:]) + \
                          " ON CONFLICT REPLACE)"
-
+            try:
+                cursor.execute(sql_create)
+                conn.commit()
+                logger.info("New table {} created".format(table_name))
+                insert_data()
+            except Error as sqlerror:
+                logger.error("Data could not be written: " + str(sqlerror))
+            except Exception as e:
+                logger.error(str(e))
+            else:
+                logger.info("Data successfully written to table {}".format(table_name))
+                return table_name, table_columns
 
 
 def write_to_csv(conn, table_name, table_columns):
@@ -184,13 +202,20 @@ def main():
                 logger.info("Fetching data for {} cbsa".format(str(key)))
                 raw_data = json.loads(get_data(key))
             except Exception as e:
-                logger.error(e)
+                logger.error("No new data written.")
             else:
                 # Populate the database
-                table_name, table_columns = populate_db(raw_data, key, conn)
+                if raw_data is not None:
+                    # If you get a return from the API, populate the database
+                    table_name, table_columns = populate_db(raw_data, key, conn)
 
-                # Export to csv
-                csv_r = write_to_csv(conn, table_name, table_columns)
+                    # Export to csv
+                    csv_r = write_to_csv(conn, table_name, table_columns)
+
+                    if csv_r is True:
+                        logger.info("All data successfully written to csv.")
+                else:
+                    logger.info("No new data to write.")
     else:
         logger.critical("Data could not be written.")
 

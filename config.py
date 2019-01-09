@@ -1,7 +1,8 @@
 # CBSA of Interest
+# I made an assumption here that the cbsas should be defined by their counties.
 cbsas = {'DALLAS' : {'state' : '48', 'county' : '113'},
          'ATLANTA' : {'state' : '13', 'county' : '121'},
-         'INDIANAPOLIS' : {'state' : '18', 'county' : '121'}}
+         'INDIANAPOLIS': {'state': '18', 'county': '121'}}
 
 # Timerange
 timerange = '2014 to 2017-Q3'
